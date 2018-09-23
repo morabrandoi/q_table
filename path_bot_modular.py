@@ -148,6 +148,12 @@ for i in range(total_iterations):
         elif destructables != []:
             pygame.draw.rect(game_display, YELLOW, pellet1.get_rect())
 
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                game_exit = True
+
+
+
 
         pygame.draw.rect(game_display, BLUE, user.get_rect())
         pygame.draw.rect(game_display, GREEN, goal.get_rect())
@@ -156,9 +162,7 @@ for i in range(total_iterations):
         pygame.display.update()
         clock.tick(FPS)
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                game_exit = True
+
 
 
 
