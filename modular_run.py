@@ -18,5 +18,6 @@ board.set_actors(actors)
 pygame.init()
 
 for i in range(5):
+    print(i)
     board.run_episode()
     board.reset_board()

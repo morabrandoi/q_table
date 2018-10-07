@@ -41,11 +41,13 @@ class Board:
 
 
     def confirm_move(self, actor):
+
+        dir = actor.decide_move(self, q_table=self.q_table, state=self.get_state())
+
+
+
         if random.random() < self.randomness:
             dir = random.choice(["left", "right", "stay", "up", "down"])
-        else:
-            dir = actor.decide_move(q_table=self.q_table, state=self.get_state())
-        print("dir", dir)
         if dir == "right" and (actor.x + self.tile_size <= self.tile_location_coord[-1]):
             actor.move(dir)
             return dir
@@ -72,7 +74,7 @@ class Board:
     def get_state(self):
         state = []
         for actor in self.actors:
-            state.append(actor.get_location)
+            state.append(actor.get_location())
         return tuple(state)
 
 
@@ -93,6 +95,7 @@ class Board:
         local_reward = reward
         self.pair_history.reverse()
         for pair in self.pair_history:
+
             state = pair[0]
             action = pair[1]
             reward *= 0.9
@@ -107,24 +110,28 @@ class Board:
         self.randomness *= self.delta_random
 
 
+
     def run_episode(self):
         game_exit = False
         total_reward = 0
+        print(self.randomness)
+        
         while not game_exit:
             total_reward -= 1
+
+                # confirm move
+            dir = self.confirm_move(self.bot)
+
             if self.is_collided(self.bot, self.finish):
                 game_exit = True
                 total_reward += 10000
+            else:
+                self.add_history(dir)
 
-                # confirm move
-            action = self.confirm_move(self.bot)
-
-            self.add_history(action)
             self.display_board(self.actors)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     game_exit = True
-        print(total_reward, "\n\n\n\n\n\n\n\n\nreward")
         self.update_table(total_reward)
 
 
@@ -172,7 +179,7 @@ class Bot(Generic_Block):
     def __init__(self, start_loc=(-1,-1)):
         super().__init__(start_loc, (0,0,255))
 
-    def decide_move(self, q_table=None, state=None):
+    def decide_move(self, board, q_table=None, state=None):
         state = tuple(state)
         if state not in q_table:
             q_table[state] = {"left": 0,
@@ -180,7 +187,7 @@ class Bot(Generic_Block):
                               "down": 0,
                               "up": 0,
                               "stay": 0}
-
+            board.q_table = q_table
             return random.choice(["left", "right", "up", "down", "stay"])
         else:
             largestVal = max(list(q_table[state].values()))
@@ -189,7 +196,6 @@ class Bot(Generic_Block):
                 if q_table[state][key] == largestVal:
                     highest_directions.append(key)
 
-            print(q_table[state].values())
             if len(highest_directions) == 1:
                 return highest_directions[0]
             else:
