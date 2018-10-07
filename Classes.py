@@ -1,9 +1,7 @@
 import random
 import pygame
 
-# fix q-table structure so direction correspondss to an index of the list as the value
-# fix decesion process
-# create update q_table method
+
 
 class Board:
     def __init__(self, dimension, display_size):
@@ -20,7 +18,8 @@ class Board:
         self.finish = None
         self.pellets = None
         self.pair_history = []
-        self.q_table = {}
+        self.reward_table = {}
+        self.value_table = {}
 
 
     def set_actors(self, actors):
@@ -42,12 +41,9 @@ class Board:
 
     def confirm_move(self, actor):
 
-        dir = actor.decide_move(self, q_table=self.q_table, state=self.get_state())
-
-
-
+        dir = actor.decide_move(self, reward_table=self.reward_table, state=self.get_state())
         if random.random() < self.randomness:
-            dir = random.choice(["left", "right", "stay", "up", "down"])
+            dir = random.choice(["left", "right", "up", "down"])
         if dir == "right" and (actor.x + self.tile_size <= self.tile_location_coord[-1]):
             actor.move(dir)
             return dir
@@ -80,7 +76,8 @@ class Board:
 
     def add_history(self, action):
         state = self.get_state()
-        self.pair_history.append((state, action))
+        if action != 'stay':
+            self.pair_history.append((state, action))
 
 
     def display_board(self, actors):
@@ -88,18 +85,16 @@ class Board:
         for actor in self.actors:
             pygame.draw.rect(self.game_display, actor.get_color(), actor.get_rect())
         pygame.display.update()
-        self.clock.tick(60)
+        self.clock.tick(10000)
 
 
     def update_table(self, reward):
-        local_reward = reward
         self.pair_history.reverse()
         for pair in self.pair_history:
-
             state = pair[0]
             action = pair[1]
-            reward *= 0.9
-            self.q_table[state][action] += reward
+            self.reward_table[state][action] = max(reward, self.reward_table[state][action])
+            reward *= 0.99
 
 
     def reset_board(self):
@@ -111,11 +106,11 @@ class Board:
 
 
 
-    def run_episode(self):
+    def run_episode(self, show=True):
         game_exit = False
         total_reward = 0
         print(self.randomness)
-        
+
         while not game_exit:
             total_reward -= 1
 
@@ -128,7 +123,9 @@ class Board:
             else:
                 self.add_history(dir)
 
-            self.display_board(self.actors)
+            if show:
+                self.display_board(self.actors)
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     game_exit = True
@@ -179,21 +176,21 @@ class Bot(Generic_Block):
     def __init__(self, start_loc=(-1,-1)):
         super().__init__(start_loc, (0,0,255))
 
-    def decide_move(self, board, q_table=None, state=None):
+    def decide_move(self, board, reward_table=None, state=None):
         state = tuple(state)
-        if state not in q_table:
-            q_table[state] = {"left": 0,
+        if state not in reward_table:
+            reward_table[state] = {"left": 0,
                               "right": 0,
                               "down": 0,
                               "up": 0,
                               "stay": 0}
-            board.q_table = q_table
+            board.reward_table = reward_table
             return random.choice(["left", "right", "up", "down", "stay"])
         else:
-            largestVal = max(list(q_table[state].values()))
+            largestVal = max(list(reward_table[state].values()))
             highest_directions = []
-            for key in list(q_table[state].keys()):
-                if q_table[state][key] == largestVal:
+            for key in list(reward_table[state].keys()):
+                if reward_table[state][key] == largestVal:
                     highest_directions.append(key)
 
             if len(highest_directions) == 1:
