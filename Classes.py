@@ -1,11 +1,9 @@
 import random
 import pygame
 
-# fix q-dict structure so direction correspondss to an index of the list as the value
+# fix q-table structure so direction correspondss to an index of the list as the value
 # fix decesion process
-# create update q_dict method
-
-
+# create update q_table method
 
 class Board:
     def __init__(self, dimension, display_size):
@@ -17,10 +15,13 @@ class Board:
         self.clock = pygame.time.Clock()
         self.actors = None
         self.bot = None
+        self.randomness = 90
+        self.delta_random = 0.9
         self.finish = None
         self.pellets = None
         self.pair_history = []
-        self.q_dict = {}
+        self.q_table = {}
+
 
     def set_actors(self, actors):
         self.actors = actors
@@ -38,8 +39,13 @@ class Board:
             if type(actor) is Pellet:
                 self.destructables.append(actor)
 
+
     def confirm_move(self, actor):
-        dir = actor.decide_move()
+        if random.random() < self.randomness:
+            dir = random.choice(["left", "right", "stay", "up", "down"])
+        else:
+            dir = actor.decide_move(q_table=self.q_table, state=self.get_state())
+        print("dir", dir)
         if dir == "right" and (actor.x + self.tile_size <= self.tile_location_coord[-1]):
             actor.move(dir)
             return dir
@@ -55,11 +61,13 @@ class Board:
         else:
             return "stay"
 
+
     def is_collided(self, actor1, actor2):
         if actor1.get_location() == actor2.get_location():
             return True
         else:
             return False
+
 
     def get_state(self):
         state = []
@@ -67,9 +75,11 @@ class Board:
             state.append(actor.get_location)
         return tuple(state)
 
-    def add_state_action_pair(self, action):
+
+    def add_history(self, action):
         state = self.get_state()
         self.pair_history.append((state, action))
+
 
     def display_board(self, actors):
         self.game_display.fill((255,255,255))
@@ -78,39 +88,45 @@ class Board:
         pygame.display.update()
         self.clock.tick(60)
 
-    def update_dict(self, reward):
-        for
+
+    def update_table(self, reward):
+        local_reward = reward
+        self.pair_history.reverse()
+        for pair in self.pair_history:
+            state = pair[0]
+            action = pair[1]
+            reward *= 0.9
+            self.q_table[state][action] += reward
+
 
     def reset_board(self):
         for actor in self.actors:
             actor.x = actor.start_x
             actor.y = actor.start_y
         self.pair_history = []
+        self.randomness *= self.delta_random
 
 
     def run_episode(self):
-
         game_exit = False
         total_reward = 0
-
         while not game_exit:
             total_reward -= 1
-
             if self.is_collided(self.bot, self.finish):
-                print("true")
                 game_exit = True
-                total_reward += 1000
+                total_reward += 10000
 
+                # confirm move
             action = self.confirm_move(self.bot)
-            self.add_state_action_pair(action)
 
+            self.add_history(action)
             self.display_board(self.actors)
-
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     game_exit = True
+        print(total_reward, "\n\n\n\n\n\n\n\n\nreward")
+        self.update_table(total_reward)
 
-        self.update_dict(total_reward)
 
 class Generic_Block:
     def __init__(self, start_loc=(-1,-1), color=(255,255,255)):
@@ -156,13 +172,29 @@ class Bot(Generic_Block):
     def __init__(self, start_loc=(-1,-1)):
         super().__init__(start_loc, (0,0,255))
 
-
-    def decide_move(self, q_dict=None, state=None):
+    def decide_move(self, q_table=None, state=None):
         state = tuple(state)
-        if state not in q_dict.keys():
-            q_dict[state] = [0,0,0,0]
+        if state not in q_table:
+            q_table[state] = {"left": 0,
+                              "right": 0,
+                              "down": 0,
+                              "up": 0,
+                              "stay": 0}
+
+            return random.choice(["left", "right", "up", "down", "stay"])
         else:
-            pass
+            largestVal = max(list(q_table[state].values()))
+            highest_directions = []
+            for key in list(q_table[state].keys()):
+                if q_table[state][key] == largestVal:
+                    highest_directions.append(key)
+
+            print(q_table[state].values())
+            if len(highest_directions) == 1:
+                return highest_directions[0]
+            else:
+
+                return random.choice(highest_directions)
 
 
 class Pellet(Generic_Block):

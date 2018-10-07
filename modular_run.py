@@ -3,7 +3,6 @@ import random
 from Classes import Board, Pellet, Bot, Finish
 
 
-
 bot = Bot(start_loc=(0,0))
 
 finish = Finish()
@@ -18,6 +17,6 @@ board.set_actors(actors)
 
 pygame.init()
 
-for i in range(2):
+for i in range(5):
     board.run_episode()
     board.reset_board()
