@@ -4,17 +4,19 @@ import pygame
 
 
 class Board:
-    def __init__(self, dimension, display_size):
+    def __init__(self, dimension, display_size, randomness=0.9, delta_random=0.45, gamma=0.9, FPS=3):
         self.dimension = dimension
         self.display_size = display_size
         self.tile_size = self.display_size // self.dimension
         self.tile_location_coord = range(0, self.display_size, self.tile_size)
         self.game_display = pygame.display.set_mode((self.display_size, self.display_size))
         self.clock = pygame.time.Clock()
+        self.FPS = FPS
         self.actors = None
         self.bot = None
-        self.randomness = 50
-        self.delta_random = 0.5
+        self.gamma = gamma
+        self.randomness = randomness
+        self.delta_random = delta_random
         self.finish = None
         self.pellets = None
         self.pair_history = []
@@ -82,7 +84,7 @@ class Board:
         for actor in self.actors:
             pygame.draw.rect(self.game_display, actor.get_color(), actor.get_rect())
         pygame.display.update()
-        self.clock.tick(900000)
+        self.clock.tick(self.FPS)
 
 
 
@@ -94,7 +96,7 @@ class Board:
             state = pair[0]
 
             immediate_reward = pair[1]
-            self.value_table[state] = max(immediate_reward + (0.9 * prev_value), self.value_table[state])
+            self.value_table[state] = max(immediate_reward + (self.gamma * prev_value), self.value_table[state])
             prev_value = self.value_table[state]
 
 
@@ -103,7 +105,7 @@ class Board:
             actor.x = actor.start_x
             actor.y = actor.start_y
         self.pair_history = []
-        self.randomness *= self.delta_random
+        self.randomness -= self.delta_random
 
 
 
