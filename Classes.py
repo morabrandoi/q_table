@@ -18,7 +18,6 @@ class Board:
         self.finish = None
         self.pellets = None
         self.pair_history = []
-        self.reward_table = {}
         self.value_table = {}
 
 
@@ -41,7 +40,7 @@ class Board:
 
     def confirm_move(self, actor):
 
-        dir = actor.decide_move(self, reward_table=self.reward_table, state=self.get_state())
+        dir = actor.decide_move(self, value_table=self.value_table, state=self.get_state())
         if random.random() < self.randomness:
             dir = random.choice(["left", "right", "up", "down"])
         if dir == "right" and (actor.x + self.tile_size <= self.tile_location_coord[-1]):
@@ -56,8 +55,7 @@ class Board:
         elif dir == "left" and (actor.x > 0):
             actor.move(dir)
             return dir
-        else:
-            return "stay"
+
 
 
     def is_collided(self, actor1, actor2):
@@ -74,10 +72,9 @@ class Board:
         return tuple(state)
 
 
-    def add_history(self, action):
+    def add_history(self, immediate_reward):
         state = self.get_state()
-        if action != 'stay':
-            self.pair_history.append((state, action))
+        self.pair_history.append((state, immediate_reward))
 
 
     def display_board(self, actors):
@@ -88,13 +85,19 @@ class Board:
         self.clock.tick(10000)
 
 
-    def update_table(self, reward):
-        self.pair_history.reverse()
+
+
+    def update_value_table(self, total_reward):
+
+        prev_value = 0
+        print(self.value_table)
+        [print(x) for x in self.pair_history]
         for pair in self.pair_history:
             state = pair[0]
-            action = pair[1]
-            self.reward_table[state][action] = max(reward, self.reward_table[state][action])
-            reward *= 0.99
+
+            immediate_reward = pair[1]
+            self.value_table[state] = max(immediate_reward + (0.9 * prev_value), self.value_table[state])
+            prev_value = self.value_table[state]
 
 
     def reset_board(self):
@@ -108,20 +111,25 @@ class Board:
 
     def run_episode(self, show=True):
         game_exit = False
-        total_reward = 0
-        print(self.randomness)
+        final_reward = 0
+
 
         while not game_exit:
-            total_reward -= 1
-
+            prev_reward = final_reward
+            final_reward -= 1
                 # confirm move
-            dir = self.confirm_move(self.bot)
+            self.confirm_move(self.bot)
 
             if self.is_collided(self.bot, self.finish):
                 game_exit = True
-                total_reward += 10000
-            else:
-                self.add_history(dir)
+                final_reward += 10000
+
+            immediate_reward = final_reward - prev_reward
+
+            self.add_history(immediate_reward)
+
+
+
 
             if show:
                 self.display_board(self.actors)
@@ -129,8 +137,10 @@ class Board:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     game_exit = True
-        self.update_table(total_reward)
 
+
+        self.pair_history.reverse()
+        self.update_value_table(final_reward)
 
 class Generic_Block:
     def __init__(self, start_loc=(-1,-1), color=(255,255,255)):
@@ -176,28 +186,53 @@ class Bot(Generic_Block):
     def __init__(self, start_loc=(-1,-1)):
         super().__init__(start_loc, (0,0,255))
 
-    def decide_move(self, board, reward_table=None, state=None):
-        state = tuple(state)
-        if state not in reward_table:
-            reward_table[state] = {"left": 0,
-                              "right": 0,
-                              "down": 0,
-                              "up": 0,
-                              "stay": 0}
-            board.reward_table = reward_table
-            return random.choice(["left", "right", "up", "down", "stay"])
-        else:
-            largestVal = max(list(reward_table[state].values()))
-            highest_directions = []
-            for key in list(reward_table[state].keys()):
-                if reward_table[state][key] == largestVal:
-                    highest_directions.append(key)
+    def decide_move(self, board, value_table=None, state=None):
 
-            if len(highest_directions) == 1:
-                return highest_directions[0]
+        directional_values = {}
+
+        if self.x + board.tile_size <= board.tile_location_coord[-1]:
+            self.move("right")
+            state = board.get_state()
+            if state not in board.value_table.keys():
+                board.value_table[state] = 0
+                directional_values["right"] = 0
             else:
+                directional_values["right"] = board.value_table[state]
+            self.move("left")
 
-                return random.choice(highest_directions)
+        if self.y + board.tile_size <= board.tile_location_coord[-1]:
+            self.move("down")
+            state = board.get_state()
+            if state not in board.value_table.keys():
+                board.value_table[state] = 0
+                directional_values["down"] = 0
+            else:
+                directional_values["down"] = board.value_table[state]
+            self.move("up")
+
+        if self.y > 0:
+            self.move("up")
+            state = board.get_state()
+            if state not in board.value_table.keys():
+                board.value_table[state] = 0
+                directional_values["up"] = 0
+            else:
+                directional_values["up"] = board.value_table[state]
+            self.move("down")
+
+        if self.x > 0:
+            self.move("left")
+            state = board.get_state()
+            if state not in board.value_table.keys():
+                board.value_table[state] = 0
+                directional_values["left"] = 0
+            else:
+                directional_values["left"] = board.value_table[state]
+            self.move("right")
+
+        max_directional_value = max(list(directional_values.values()))
+        list_of_highest_value_dir = [x for x in list(directional_values.keys()) if directional_values[x] == max_directional_value]
+        return random.choice(list_of_highest_value_dir)
 
 
 class Pellet(Generic_Block):
