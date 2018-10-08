@@ -4,10 +4,10 @@ from Classes import Board, Pellet, Bot, Finish
 
 
 
-show_board = True
-FPS = 90000
+show_board = False
+FPS = 5
 total_iterations = 100
-initial_randomness = .9
+initial_randomness = 1.0
 randomness_decay = initial_randomness / (total_iterations - 2)
 gamma = .9
 

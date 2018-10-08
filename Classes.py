@@ -18,13 +18,14 @@ class Board:
         self.randomness = randomness
         self.delta_random = delta_random
         self.finish = None
-        self.pellets = None
+        self.pellets = []
         self.pair_history = []
         self.value_table = {}
 
 
     def set_actors(self, actors):
         self.actors = actors
+
         for actor in self.actors:
             actor.set_size(self.tile_size)
             if type(actor) is Finish:
@@ -37,12 +38,14 @@ class Board:
             if type(actor)is Bot:
                 self.bot = actor
             if type(actor) is Pellet:
-                self.destructables.append(actor)
+                actor.set_location((0, self.tile_location_coord[-1]))
+                self.pellets.append(actor)
 
 
     def confirm_move(self, actor):
-
-        dir = actor.decide_move(self, value_table=self.value_table, state=self.get_state())
+        state = self.get_state()
+        print(state)
+        dir = actor.decide_move(self, value_table=self.value_table, state=state)
         if random.random() < self.randomness:
             dir = random.choice(["left", "right", "up", "down"])
         if dir == "right" and (actor.x + self.tile_size <= self.tile_location_coord[-1]):
@@ -70,7 +73,10 @@ class Board:
     def get_state(self):
         state = []
         for actor in self.actors:
-            state.append(actor.get_location())
+            if len(self.pellets) == 0 and type(actor) == type(Pellet()):
+                pass
+            else:
+                state.append(actor.get_location())
         return tuple(state)
 
 
@@ -82,7 +88,10 @@ class Board:
     def display_board(self, actors):
         self.game_display.fill((255,255,255))
         for actor in self.actors:
-            pygame.draw.rect(self.game_display, actor.get_color(), actor.get_rect())
+            if type(actor) != type(Pellet()):
+                pygame.draw.rect(self.game_display, actor.get_color(), actor.get_rect())
+            elif len(self.pellets) > 0:
+                pygame.draw.rect(self.game_display, actor.get_color(), actor.get_rect())
         pygame.display.update()
         self.clock.tick(self.FPS)
 
@@ -106,7 +115,7 @@ class Board:
             actor.y = actor.start_y
         self.pair_history = []
         self.randomness -= self.delta_random
-
+        self.set_actors(self.actors)
 
 
     def run_episode(self, show=True):
@@ -120,13 +129,24 @@ class Board:
                 # confirm move
             self.confirm_move(self.bot)
 
-            if self.is_collided(self.bot, self.finish):
+            if len(self.pellets) == 0 and self.is_collided(self.bot, self.finish):
                 game_exit = True
                 final_reward += 10000
 
-            immediate_reward = final_reward - prev_reward
 
-            self.add_history(immediate_reward)
+
+            if len(self.pellets) != 0 and self.is_collided(self.bot, self.pellets[0]):
+                final_reward += 1000
+                immediate_reward = final_reward - prev_reward
+                self.add_history(immediate_reward)
+                self.pellets.pop(0)
+            else:
+                immediate_reward = final_reward - prev_reward
+                self.add_history(immediate_reward)
+
+
+
+
 
 
 
@@ -189,7 +209,6 @@ class Bot(Generic_Block):
     def decide_move(self, board, value_table=None, state=None):
 
         directional_values = {}
-
         if self.x + board.tile_size <= board.tile_location_coord[-1]:
             self.move("right")
             state = board.get_state()
