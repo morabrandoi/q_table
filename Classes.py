@@ -13,8 +13,8 @@ class Board:
         self.clock = pygame.time.Clock()
         self.actors = None
         self.bot = None
-        self.randomness = 90
-        self.delta_random = 0.9
+        self.randomness = 50
+        self.delta_random = 0.5
         self.finish = None
         self.pellets = None
         self.pair_history = []
@@ -82,7 +82,7 @@ class Board:
         for actor in self.actors:
             pygame.draw.rect(self.game_display, actor.get_color(), actor.get_rect())
         pygame.display.update()
-        self.clock.tick(10000)
+        self.clock.tick(900000)
 
 
 
@@ -90,8 +90,6 @@ class Board:
     def update_value_table(self, total_reward):
 
         prev_value = 0
-        print(self.value_table)
-        [print(x) for x in self.pair_history]
         for pair in self.pair_history:
             state = pair[0]
 
