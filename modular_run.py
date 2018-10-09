@@ -5,19 +5,23 @@ from Classes import Board, Pellet, Bot, Finish
 
 
 show_board = False
-FPS = 5
-total_iterations = 100
+FPS = 10
+total_iterations = 300
 initial_randomness = 1.0
 randomness_decay = initial_randomness / (total_iterations - 2)
-gamma = .9
+gamma = .999999
+how_many_pellets = 20
+
+
 
 
 bot = Bot(start_loc=(0,0))
 
 finish = Finish()
 
-nugget = Pellet()
-actors = [bot, finish, nugget]
+actors = [bot, finish]
+for _ in range(how_many_pellets):
+    actors.append(Pellet())
 
 dimension = 20
 display_size = 600

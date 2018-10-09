@@ -19,13 +19,16 @@ class Board:
         self.delta_random = delta_random
         self.finish = None
         self.pellets = []
+        self.destructables = []
+
+
         self.pair_history = []
         self.value_table = {}
 
 
     def set_actors(self, actors):
         self.actors = actors
-
+        taken_spaces = []
         for actor in self.actors:
             actor.set_size(self.tile_size)
             if type(actor) is Finish:
@@ -38,13 +41,20 @@ class Board:
             if type(actor)is Bot:
                 self.bot = actor
             if type(actor) is Pellet:
-                actor.set_location((0, self.tile_location_coord[-1]))
-                self.pellets.append(actor)
+                x = random.choice(self.tile_location_coord[1:-2])
+                y = random.choice(self.tile_location_coord[1:-2])
+                while (x,y) in taken_spaces:
+                    x = random.choice(self.tile_location_coord[1:-2])
+                    y = random.choice(self.tile_location_coord[1:-2])
+                taken_spaces.append((x,y))
+                actor.set_start_location((x,y))
+                actor.set_location((x,y))
+                self.destructables.append(actor)
+        self.pellets = self.destructables[:]
 
 
     def confirm_move(self, actor):
         state = self.get_state()
-        print(state)
         dir = actor.decide_move(self, value_table=self.value_table, state=state)
         if random.random() < self.randomness:
             dir = random.choice(["left", "right", "up", "down"])
@@ -64,16 +74,22 @@ class Board:
 
 
     def is_collided(self, actor1, actor2):
-        if actor1.get_location() == actor2.get_location():
-            return True
+        if type(actor2) == type([]):
+            for i in range(len(actor2)):
+                if actor1.get_location() == actor2[i].get_location():
+                    return (True, i)
+            return (False, -1)
         else:
-            return False
+            if actor1.get_location() == actor2.get_location():
+                return True
+            else:
+                return False
 
 
     def get_state(self):
         state = []
         for actor in self.actors:
-            if len(self.pellets) == 0 and type(actor) == type(Pellet()):
+            if actor not in self.destructables and type(actor) == type(Pellet()):
                 pass
             else:
                 state.append(actor.get_location())
@@ -90,8 +106,9 @@ class Board:
         for actor in self.actors:
             if type(actor) != type(Pellet()):
                 pygame.draw.rect(self.game_display, actor.get_color(), actor.get_rect())
-            elif len(self.pellets) > 0:
-                pygame.draw.rect(self.game_display, actor.get_color(), actor.get_rect())
+            elif len(self.destructables) > 0:
+                for des in self.destructables:
+                    pygame.draw.rect(self.game_display, des.get_color(), des.get_rect())
         pygame.display.update()
         self.clock.tick(self.FPS)
 
@@ -115,8 +132,8 @@ class Board:
             actor.y = actor.start_y
         self.pair_history = []
         self.randomness -= self.delta_random
-        self.set_actors(self.actors)
 
+        self.destructables = self.pellets[:]
 
     def run_episode(self, show=True):
         game_exit = False
@@ -129,17 +146,17 @@ class Board:
                 # confirm move
             self.confirm_move(self.bot)
 
-            if len(self.pellets) == 0 and self.is_collided(self.bot, self.finish):
+            if self.is_collided(self.bot, self.finish):
                 game_exit = True
                 final_reward += 10000
 
 
-
-            if len(self.pellets) != 0 and self.is_collided(self.bot, self.pellets[0]):
+            (collided, index) = self.is_collided(self.bot, self.destructables)
+            if len(self.destructables) != 0 and collided:
                 final_reward += 1000
                 immediate_reward = final_reward - prev_reward
                 self.add_history(immediate_reward)
-                self.pellets.pop(0)
+                self.destructables.pop(index)
             else:
                 immediate_reward = final_reward - prev_reward
                 self.add_history(immediate_reward)
@@ -197,6 +214,9 @@ class Generic_Block:
     def set_location(self, loc):
         self.x = loc[0]
         self.y = loc[1]
+    def set_start_location(self, loc):
+        self.start_x = loc[0]
+        self.start_y = loc[1]
 
     def set_size(self, size):
         self.size = size
